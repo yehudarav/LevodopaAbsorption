@@ -54,13 +54,15 @@ Description
 int main(int argc, char *argv[])
 {
     #include "setRootCase.H"
-    #include "createTime.H"
+	Info  << Foam::Time::controlDictName << endl;
+	//Foam::Time runTime(Foam::Time::controlDictName, args);
+  //  #include "createTime.H"
 
-    Info << " \n\nIntestinalLevodopa  :  0.0.1 (b)" << endl; 
-    Info << " -------------------------- " << endl; 
+    //Info << " \n\nIntestinalLevodopa  :  0.0.1 (b)" << endl; 
+    //Info << " -------------------------- " << endl; 
 
      const scalar pi = 3.1428;
-	
+	/*
     // --------------------------------------------------- Stomach ---------------------------------------
 
     // Create the Mesh
@@ -174,6 +176,8 @@ int main(int argc, char *argv[])
     dimensionedScalar SI_Duodenum(SmallIntestinePropertiesDict.lookup("SI_DuodenumLength"));
     dimensionedScalar SI_Jejunum(SmallIntestinePropertiesDict.lookup("SI_JejunumLength"));
 
+    dimensionedScalar SIemptying(StomachPropertiesDict.lookup("Emptying"));    
+	
     volVectorField SmallIntestineVelocity 
     (
         IOobject
@@ -192,7 +196,7 @@ int main(int argc, char *argv[])
     (
         IOobject
         (
-            "SmallIntestineVelocity",
+            "SmallIntestineDispersion",
             runTime.timeName(),
             SmallIntestine,
             IOobject::NO_READ,
@@ -220,7 +224,14 @@ int main(int argc, char *argv[])
 	linearInterpolate(SmallIntestineVelocity) & SmallIntestine.Sf()
     );
 
-    SI_phi
+    label IleoCecalpatchID 		= SmallIntestine.boundaryMesh().findPatchID("IleoCecal"); 
+    const polyPatch& IleoCecalcPatch 	= SmallIntestine.boundaryMesh()[IleoCecalpatchID]; 
+
+
+	forAll(IleoCecalcPatch, facei) 
+	{ 
+		SI_phi.boundaryField()[IleoCecalpatchID][facei] =0; 
+	} 
 
 
     // for now... change it soon to be calculated folding+villi along the SI.  
@@ -287,6 +298,7 @@ int main(int argc, char *argv[])
     volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass,scalar(0)) );
 
+*/
 /*
     // --------------------------------------------------- Epithelium ---------------------------------------
     // Create the Mesh
@@ -415,6 +427,8 @@ int main(int argc, char *argv[])
 
 */
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+/*
     Info<< "\nStarting time loop\n" << endl;
 
     while (runTime.loop())
@@ -460,7 +474,7 @@ int main(int argc, char *argv[])
 		       -fvm::Sp(SI_LevodopaAbsorption_Coeff/SmallIntestine.V(),LevodopaSmallIntestine)
 		); 	
 		
-		Info << SI_phi << endl;
+		//Info << SI_phi << endl;
 
 		LevodopaIntestineEqn.solve();
 
@@ -474,8 +488,22 @@ int main(int argc, char *argv[])
 
 		Info << "Total " << sum(SI_LevodopaTotalAbsorption)+sum(LevodopaSmallIntestine*SmallIntestine.V()) << endl;
 
+
+		if (runTime.time() > SIemptying) { 
+
+//			forAll(IleoCecalcPatch, facei) 
+//			{ 
+		
+//				Info << SI_U_Face[IleoCecalpatchID][facei] << endl;
+//				SmallIntestine.Sf()[IleoCecalpatchID][facei] & SI_U_Face[IleoCecalpatchID][facei];
+				//SI_phi.boundaryField()[IleoCecalpatchID][facei] =0; 
+//			} 
+
+		}
+
 	} //.. small intestine. 
-	
+
+*/	
 /*
 	{ // Epithelium
 
@@ -525,7 +553,7 @@ int main(int argc, char *argv[])
 	}
 
 */
-
+/*
 	runTime.write();
 
 	Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
@@ -533,7 +561,7 @@ int main(int argc, char *argv[])
 			<< nl << endl;
             
     }
-
+*/
     Info<< "End\n" << endl;
 
     return 0;
