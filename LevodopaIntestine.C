@@ -54,15 +54,13 @@ Description
 int main(int argc, char *argv[])
 {
     #include "setRootCase.H"
-	Info  << Foam::Time::controlDictName << endl;
-	//Foam::Time runTime(Foam::Time::controlDictName, args);
-  //  #include "createTime.H"
+    #include "createTime.H"
 
-    //Info << " \n\nIntestinalLevodopa  :  0.0.1 (b)" << endl; 
-    //Info << " -------------------------- " << endl; 
+    Info << " \n\nIntestinalLevodopa  :  0.0.1 (b)" << endl; 
+    Info << " -------------------------- " << endl; 
 
      const scalar pi = 3.1428;
-	/*
+	
     // --------------------------------------------------- Stomach ---------------------------------------
 
     // Create the Mesh
@@ -298,7 +296,7 @@ int main(int argc, char *argv[])
     volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass,scalar(0)) );
 
-*/
+
 /*
     // --------------------------------------------------- Epithelium ---------------------------------------
     // Create the Mesh
@@ -428,7 +426,7 @@ int main(int argc, char *argv[])
 */
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-/*
+
     Info<< "\nStarting time loop\n" << endl;
 
     while (runTime.loop())
@@ -491,19 +489,19 @@ int main(int argc, char *argv[])
 
 		if (runTime.time() > SIemptying) { 
 
-//			forAll(IleoCecalcPatch, facei) 
-//			{ 
+			forAll(IleoCecalcPatch, facei) 
+			{ 
 		
 //				Info << SI_U_Face[IleoCecalpatchID][facei] << endl;
-//				SmallIntestine.Sf()[IleoCecalpatchID][facei] & SI_U_Face[IleoCecalpatchID][facei];
+				SmallIntestine.Sf()[IleoCecalpatchID][facei] & SI_U_Face[IleoCecalpatchID][facei];
 				//SI_phi.boundaryField()[IleoCecalpatchID][facei] =0; 
-//			} 
+			} 
 
 		}
 
 	} //.. small intestine. 
 
-*/	
+	
 /*
 	{ // Epithelium
 
@@ -553,7 +551,7 @@ int main(int argc, char *argv[])
 	}
 
 */
-/*
+
 	runTime.write();
 
 	Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
@@ -561,7 +559,7 @@ int main(int argc, char *argv[])
 			<< nl << endl;
             
     }
-*/
+
     Info<< "End\n" << endl;
 
     return 0;
