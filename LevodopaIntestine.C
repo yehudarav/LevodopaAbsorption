@@ -124,8 +124,6 @@ int main(int argc, char *argv[])
         )
     );
 
-    Info << sum(SmallIntestine.V()) << endl;
-
     // Read the constants 
     IOdictionary SmallIntestinePropertiesDict
     (
@@ -458,28 +456,25 @@ int main(int argc, char *argv[])
 
 
 	{ // Small intestine
-		
-		volScalarField LevodopaSmallIntestineConcentration = LevodopaSmallIntestine/(pi*SI_Radius.value()*SI_Radius.value()); 
 
 		// Build the Sp coefficient. 
 		//			         m**2       *      []                 *      kg/s/m**2         = kg/s/(kg/m3) = kg*m3/(s*kg) = m3/s. 
-		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestineConcentration);
+		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestine);
 	
-
-		SI_LevodopaAbsorption       = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestineConcentration;
-//		Info << SI_LevodopaAbsorption.dimensions() << " " << (pi*SI_Radius*SI_Radius*SmallIntestine.V())->dimensions() << endl;
-
 		// Intestinal phase
 		fvScalarMatrix LevodopaIntestineEqn (
 			fvm::ddt(LevodopaSmallIntestine) + 
 			fvm::div(SI_phi,LevodopaSmallIntestine) - 
 			fvm::laplacian(SmallIntestineDispersion,LevodopaSmallIntestine) 
 					== 
-		       -(SI_LevodopaAbsorption/(pi*SI_Radius.value()*SI_Radius.value()*SmallIntestine.V()))
+		       -fvm::Sp(SI_LevodopaAbsorption_Coeff/(pi*SI_Radius.value()*SI_Radius.value()*SmallIntestine.V()),LevodopaSmallIntestine)
 		); 	
 		
+
 		LevodopaIntestineEqn.solve();
-		SI_LevodopaTotalAbsorption += SI_LevodopaAbsorption*runTime.deltaT();
+
+		SI_LevodopaAbsorption       = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine;
+		SI_LevodopaTotalAbsorption += SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine*runTime.deltaT();
 
 		Info << endl << "Small Intestine" << endl;
 		Info <<         "---------------" << endl;
@@ -494,6 +489,10 @@ int main(int argc, char *argv[])
 			forAll(IleoCecalcPatch, facei) 
 			{ 
 				SI_phi = linearInterpolate(SmallIntestineVelocity) & SmallIntestine.Sf();
+		
+//				Info << SI_U_Face[IleoCecalpatchID][facei] << endl;
+				//SmallIntestine.Sf()[IleoCecalpatchID][facei] & SI_U_Face[IleoCecalpatchID][facei];
+				//SI_phi.boundaryField()[IleoCecalpatchID][facei] =0; 
 			} 
 
 		}
