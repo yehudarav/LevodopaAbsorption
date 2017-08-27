@@ -231,10 +231,9 @@ int main(int argc, char *argv[])
 	} 
 
 
-    // for now... change it soon to be calculated folding+villi along the SI.  
-    // without the microvilli. 
+    // Amplification (without the microvilli) per unit area of intestine. 
     volScalarField SI_SurfaceArea(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
-					   SmallIntestine,dimensionedScalar("one",dimArea,scalar(1)) );
+					   SmallIntestine,dimensionedScalar("one",dimLength,scalar(1)) );
     
 
     volScalarField SI_FoldingAmplification(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
@@ -285,16 +284,15 @@ int main(int argc, char *argv[])
     dimensionedScalar Levodopa_LNAA_Vmax(SmallIntestineLevodopaPropertiesDict.lookup("LNAA_Vmax"));
     dimensionedScalar Levodopa_LNAA_Km(SmallIntestineLevodopaPropertiesDict.lookup("LNAA_Km"));
 
-    volScalarField SI_LevodopaAbsorption(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField SI_LevodopaAbsorption(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass/dimTime,scalar(0)) );
 
     volScalarField SI_LevodopaAbsorption_Coeff(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
-					     SmallIntestine,dimensionedScalar("one",dimVolume/dimTime,scalar(0)) );
+					     SmallIntestine,dimensionedScalar("one",dimArea/dimTime,scalar(0)) );
 
   
     volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass,scalar(0)) );
-
 
 /*
     // --------------------------------------------------- Epithelium ---------------------------------------
@@ -459,19 +457,18 @@ int main(int argc, char *argv[])
 	{ // Small intestine
 
 		// Build the Sp coefficient. 
-		//			         m**2       *      []                 *      kg/s/m**2         = kg/s/(kg/m3) = kg*m3/(s*kg) = m3/s. 
+		// remember that SI_SurfaceArea is for unit length. and so we have to multiply it to get the total amount absorbed. 
+		//			         m          *      []                 *      kg/s/m**2         = kg/s/(kg/m3) = kg*m3/(s*kg) = m2/s. 
 		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestine);
 	
 		// Intestinal phase
 		fvScalarMatrix LevodopaIntestineEqn (
-			fvm::ddt(LevodopaSmallIntestine) + 
-			fvm::div(SI_phi,LevodopaSmallIntestine) - 
-			fvm::laplacian(SmallIntestineDispersion,LevodopaSmallIntestine) 
+			fvm::ddt(LevodopaSmallIntestine)  
+			+ fvm::div(SI_phi,LevodopaSmallIntestine)  
+			- fvm::laplacian(SmallIntestineDispersion,LevodopaSmallIntestine) 
 					== 
-		       -fvm::Sp(SI_LevodopaAbsorption_Coeff/(pi*SI_Radius.value()*SI_Radius.value()*SmallIntestine.V()),LevodopaSmallIntestine)
+		       -fvm::Sp(SI_LevodopaAbsorption_Coeff/(pi*SI_Radius*SI_Radius),LevodopaSmallIntestine)
 		); 	
-		
-
 		LevodopaIntestineEqn.solve();
 
 		SI_LevodopaAbsorption       = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine;
@@ -479,7 +476,8 @@ int main(int argc, char *argv[])
 
 		Info << endl << "Small Intestine" << endl;
 		Info <<         "---------------" << endl;
-		Info << "Intestinal Levodopa " << sum(LevodopaSmallIntestine*SmallIntestine.V()) << endl;
+		Info << "Intestinal Levodopa " << sum(LevodopaSmallIntestine
+*SmallIntestine.V()) << endl;
 		Info << "Absorption " << sum(SI_LevodopaTotalAbsorption) << endl;
 
 		Info << "Total " << sum(SI_LevodopaTotalAbsorption)+sum(LevodopaSmallIntestine*SmallIntestine.V()) << endl;
@@ -490,10 +488,6 @@ int main(int argc, char *argv[])
 			forAll(IleoCecalcPatch, facei) 
 			{ 
 				SI_phi = linearInterpolate(SmallIntestineVelocity) & SmallIntestine.Sf();
-		
-//				Info << SI_U_Face[IleoCecalpatchID][facei] << endl;
-				//SmallIntestine.Sf()[IleoCecalpatchID][facei] & SI_U_Face[IleoCecalpatchID][facei];
-				//SI_phi.boundaryField()[IleoCecalpatchID][facei] =0; 
 			} 
 
 		}
