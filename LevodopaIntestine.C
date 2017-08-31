@@ -30,6 +30,11 @@ Description
 
 	A basic solver for stomach-small intestine processes of levodopa absorption. 
 
+
+	The intestinal concentration is A/(CrossSection*dh) 
+
+	
+
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
@@ -166,7 +171,7 @@ int main(int argc, char *argv[])
         SmallIntestine
     );
 
-    
+   
     dimensionedVector SI_U(SmallIntestinePropertiesDict.lookup("SI_U"));
     dimensionedScalar SI_Radius(SmallIntestinePropertiesDict.lookup("SI_Radius"));	
     dimensionedScalar SI_L(SmallIntestinePropertiesDict.lookup("SI_Length"));
@@ -236,14 +241,18 @@ int main(int argc, char *argv[])
 					   SmallIntestine,dimensionedScalar("one",dimLength,scalar(1)) );
     
 
+    volScalarField SI_dh(IOobject("SI_dH",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+					   SmallIntestine,dimensionedScalar("one",dimLength,scalar(1)) );
+
+
     volScalarField SI_FoldingAmplification(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(1)) );
 
 
 
 
-	// folding = 3 from 10 to 50. 
-	// decrease linearly from 3 to 1 in the range 50->282. 
+    // folding = 3 from 10 to 50. 
+    // decrease linearly from 3 to 1 in the range 50->282. 
     const volScalarField& X = SmallIntestine.C().component(0); 
     forAll(SI_SurfaceArea,cellID) { 
 	// 		Krecking folding contribution. 
@@ -270,13 +279,13 @@ int main(int argc, char *argv[])
 			scalar villi_amplification = villi_density*(villi_tip_area+villi_body_area);
 
 			SI_SurfaceArea[cellID] 		= 2*pi*SI_Radius.value()*folding_amplification*villi_amplification;
+			SI_dh[cellID]  = SmallIntestine.V()[cellID];
     }
 
 	
 
     volScalarField SI_SurfaceArea_Microvilli(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(25)) );   
-
 
     dimensionedScalar SI_CrossSection(SmallIntestinePropertiesDict.lookup("SI_CrossSection"));
 
@@ -287,8 +296,9 @@ int main(int argc, char *argv[])
     volScalarField SI_LevodopaAbsorption(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass/dimTime,scalar(0)) );
 
+
     volScalarField SI_LevodopaAbsorption_Coeff(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
-					     SmallIntestine,dimensionedScalar("one",dimArea/dimTime,scalar(0)) );
+					     SmallIntestine,dimensionedScalar("one",dimless/dimTime,scalar(0)) );
 
   
     volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
@@ -456,31 +466,40 @@ int main(int argc, char *argv[])
 
 	{ // Small intestine
 
+
 		// Build the Sp coefficient. 
 		// remember that SI_SurfaceArea is for unit length. and so we have to multiply it to get the total amount absorbed. 
-		//			         m          *      []                 *      kg/s/m**2         = kg/s/(kg/m3) = kg*m3/(s*kg) = m2/s. 
-		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestine);
+		//			         m          *      []                 *      kg/s/m**2   /      (kg/m3)                               /		m**2	       = kg*m2/(m2*s*kg) = 1/s. 
+		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestine)/(pi*SI_Radius*SI_Radius);
 	
+		// SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine = g/(s*m) that is the amount absorbed per unit length. 
+		//     --- divide by pi*R^2 to get the concentration per cell. 
+		// 
+
 		// Intestinal phase
+	
+		volScalarField TimeStepAbs = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine;
+
 		fvScalarMatrix LevodopaIntestineEqn (
 			fvm::ddt(LevodopaSmallIntestine)  
 			+ fvm::div(SI_phi,LevodopaSmallIntestine)  
 			- fvm::laplacian(SmallIntestineDispersion,LevodopaSmallIntestine) 
 					== 
-		       -fvm::Sp(SI_LevodopaAbsorption_Coeff/(pi*SI_Radius*SI_Radius),LevodopaSmallIntestine)
+			-TimeStepAbs
+		      
 		); 	
+
 		LevodopaIntestineEqn.solve();
 
-		SI_LevodopaAbsorption       = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine;
-		SI_LevodopaTotalAbsorption += SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine*runTime.deltaT();
+		SI_LevodopaAbsorption       = TimeStepAbs*(pi*SI_Radius*SI_Radius*SI_dh);
+		SI_LevodopaTotalAbsorption += SI_LevodopaAbsorption*runTime.deltaT();
 
 		Info << endl << "Small Intestine" << endl;
 		Info <<         "---------------" << endl;
-		Info << "Intestinal Levodopa " << sum(LevodopaSmallIntestine
-*SmallIntestine.V()) << endl;
+		Info << "Intestinal Levodopa " << sum(LevodopaSmallIntestine*pi*SI_Radius*SI_Radius*SI_dh) << endl;
 		Info << "Absorption " << sum(SI_LevodopaTotalAbsorption) << endl;
 
-		Info << "Total " << sum(SI_LevodopaTotalAbsorption)+sum(LevodopaSmallIntestine*SmallIntestine.V()) << endl;
+		Info << "Total " << sum(SI_LevodopaTotalAbsorption)+sum(LevodopaSmallIntestine*pi*SI_Radius*SI_Radius*SI_dh) << endl;
 
 
 		if (runTime.time() > SIemptying) { 
