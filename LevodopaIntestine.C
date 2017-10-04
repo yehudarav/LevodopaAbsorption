@@ -33,6 +33,9 @@ Description
 
 	The intestinal concentration is A/(CrossSection*dh) 
 
+
+	We know that the COMT has negligible effect on the bioavailability. 
+	Therefore, we don't include it in this version of the code. 
 	
 
 \*---------------------------------------------------------------------------*/
@@ -249,7 +252,7 @@ int main(int argc, char *argv[])
 
 
     // Amplification (without the microvilli) per unit area of intestine. 
-    volScalarField SI_SurfaceArea(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField SI_SurfaceArea(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimLength,scalar(1)) );
     
 
@@ -257,7 +260,7 @@ int main(int argc, char *argv[])
 					   SmallIntestine,dimensionedScalar("one",dimLength,scalar(1)) );
 
 
-    volScalarField SI_FoldingAmplification(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField SI_FoldingAmplification(IOobject("SI_FoldingAmplification",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(1)) );
 
 
@@ -266,10 +269,11 @@ int main(int argc, char *argv[])
 
     // folding = 3 from 10 to 50. 
     // decrease linearly from 3 to 1 in the range 50->282. 
-    const volScalarField& X = SmallIntestine.C().component(0); 
+
     forAll(SI_SurfaceArea,cellID) { 
 	// 		Krecking folding contribution. 
 			scalar folding_amplification;
+			const volScalarField& X = SmallIntestine.C().component(0); 
 
 			if (X[cellID] < SI_Duodenum.value()/2) { 
 				folding_amplification = 1;
@@ -295,8 +299,6 @@ int main(int argc, char *argv[])
 			SI_dh[cellID]  = SmallIntestine.V()[cellID];
     }
 
-	
-
     volScalarField SI_SurfaceArea_Microvilli(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(25)) );   
 
@@ -320,7 +322,7 @@ int main(int argc, char *argv[])
     volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass,scalar(0)) );
 
-
+/*
     // --------------------------------------------------- Epithelium ---------------------------------------
     // Create the Mesh
     Foam::fvMesh Epithelium
@@ -411,7 +413,7 @@ int main(int argc, char *argv[])
     volScalarField Epithelium_TotalFlux_To_Body(IOobject("Epithelium_Flux_To_Body",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Epithelium,dimensionedScalar("one",dimMass,scalar(0)) );
 
-
+*/
 
     // --------------------------------------------------- Body ---------------------------------------
     // Create the Mesh
@@ -459,6 +461,10 @@ int main(int argc, char *argv[])
 
     volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass/(dimVolume*dimTime),scalar(0)) );
+
+    volScalarField TotalBodyAbsorption(IOobject("TotalAbsorption",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
+					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
+
 
     volScalarField TotalElimination(IOobject("TotalElimination",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
@@ -557,7 +563,7 @@ int main(int argc, char *argv[])
 	} //.. small intestine. 
 
 	
-
+/*
 	{ // Epithelium
 
 		// Build the Sp coefficient. 
@@ -598,11 +604,11 @@ int main(int argc, char *argv[])
 
 	} // .. Epithelium 
   
-   
+  */ 
 
 	{ // BODY 
 
-		Body_Flux_To_Body[0] = sum(Epithelium_Flux_To_Body).value()/bodyvolume.value();
+		Body_Flux_To_Body[0] = sum(SI_LevodopaAbsorption).value()/bodyvolume.value();
 
  		volScalarField Body_Levodoa_Elimination = bodyelimination*LevodopaBody;
 
@@ -616,11 +622,13 @@ int main(int argc, char *argv[])
 
 		BodyEqn.solve();
 
+		TotalBodyAbsorption += Body_Flux_To_Body*bodyvolume*runTime.deltaT();
 		TotalElimination += Body_Levodoa_Elimination*bodyvolume*runTime.deltaT();
 
 		Info << endl << "   Body  " << endl;
 		Info <<         "---------------" << endl;
 		Info << "Body Levodopa    " << sum(LevodopaBody*bodyvolume) << endl;
+		Info << "Body Absorption  " << sum(TotalBodyAbsorption) << endl;
 		Info << "Body Elimination " << sum(TotalElimination) << endl;
 	
 	}
