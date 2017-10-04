@@ -194,6 +194,8 @@ int main(int argc, char *argv[])
 	SI_U
     );
 
+	
+
     volTensorField SmallIntestineDispersion 
     (
         IOobject
@@ -236,6 +238,16 @@ int main(int argc, char *argv[])
 	} 
 
 
+    label PyloruspatchID 		= SmallIntestine.boundaryMesh().findPatchID("Pylorus"); 
+    const polyPatch& PylorusPatch 	= SmallIntestine.boundaryMesh()[PyloruspatchID]; 
+
+
+	forAll(PylorusPatch, facei) 
+	{ 
+		SI_phi.boundaryField()[PyloruspatchID][facei] =0; 
+	} 
+
+
     // Amplification (without the microvilli) per unit area of intestine. 
     volScalarField SI_SurfaceArea(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimLength,scalar(1)) );
@@ -249,6 +261,7 @@ int main(int argc, char *argv[])
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(1)) );
 
 
+    volScalarField SI_V = pi*SI_Radius*SI_Radius*SI_dh;
 
 
     // folding = 3 from 10 to 50. 
@@ -293,6 +306,9 @@ int main(int argc, char *argv[])
     dimensionedScalar Levodopa_LNAA_Vmax(SmallIntestineLevodopaPropertiesDict.lookup("LNAA_Vmax"));
     dimensionedScalar Levodopa_LNAA_Km(SmallIntestineLevodopaPropertiesDict.lookup("LNAA_Km"));
 
+    volScalarField SI_Emptying(IOobject("SI_Emptying",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
+					     SmallIntestine,dimensionedScalar("one",dimMass/dimTime/dimVolume,scalar(0)) );
+
     volScalarField SI_LevodopaAbsorption(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass/dimTime,scalar(0)) );
 
@@ -304,7 +320,7 @@ int main(int argc, char *argv[])
     volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass,scalar(0)) );
 
-/*
+
     // --------------------------------------------------- Epithelium ---------------------------------------
     // Create the Mesh
     Foam::fvMesh Epithelium
@@ -317,8 +333,6 @@ int main(int argc, char *argv[])
             Foam::IOobject::MUST_READ
         )
     );
-
-    Info << sum(Epithelium.V()) << endl;
 
     // Read the constants 
     IOdictionary EpitheliumLevodopaPropertiesDict
@@ -348,32 +362,47 @@ int main(int argc, char *argv[])
         Epithelium
     );
 
+    dimensionedScalar Epithelium_width(SmallIntestinePropertiesDict.lookup("SI_Epithelium_H"));
+
+    volScalarField Epithelium_CrossSection(IOobject("Epithelium_Volume",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
+				     Epithelium,
+				     dimensionedScalar("one",dimArea,scalar(1)) );
 
     volScalarField Epithelium_Volume(IOobject("Epithelium_Volume",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
 				     Epithelium,
 				     dimensionedScalar("one",dimVolume,scalar(1)) );
 
+
+    volScalarField Epithelium_SurfaceArea(IOobject("Epithelium_SurfaceArea",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
+				     Epithelium,
+				     dimensionedScalar("one",dimLength,scalar(1)) );
+
+
     forAll(Epithelium_Volume,CellID) { 
-		Epithelium_Volume[CellID] = 2*pi*SI_Radius.value()*Epithelium.V()[CellID]*SI_FoldingAmplification[CellID];
+		Epithelium_CrossSection[CellID]  = 2*pi*SI_Radius.value()*Epithelium_width.value()*SI_FoldingAmplification[CellID];
+		Epithelium_Volume[CellID] 	 = Epithelium_CrossSection[CellID]*SI_dh[CellID];
+		Epithelium_SurfaceArea[CellID]	 = SI_SurfaceArea[CellID]; // transfer mesh. 
     }
+
+
+
+
+
 
     volScalarField Epithelium_LevodopaAbsorption_From_SI(IOobject("Epithelium_LevodopaAbsorption_From_SI",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
 					     		 Epithelium,
 							 dimensionedScalar("one",dimMass/(dimVolume*dimTime),scalar(0)) );
 
+    volScalarField Epithelium_TotalLevodopaAbsorption_From_SI(IOobject("Epithelium_TotalLevodopaAbsorption_From_SI",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
+					     		 Epithelium,
+							 dimensionedScalar("one",dimMass,scalar(0)) );
+
     dimensionedScalar Levodopa_COMT_Vmax(EpitheliumLevodopaPropertiesDict.lookup("COMT_Vmax"));
     dimensionedScalar Levodopa_COMT_Km  (EpitheliumLevodopaPropertiesDict.lookup("COMT_Km"  ));
 
-    volScalarField Epithelium_LevodopaAbsorption_Coeff(IOobject("Epithelium_LevodopaAbsorption",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
-					     Epithelium,dimensionedScalar("one",dimVolume/dimTime,scalar(0)) );
+    volScalarField Epithelium_COMT_TotalMetabolism(IOobject("Epithelium_COMT_Metabolism",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
+					     Epithelium,dimensionedScalar("one",dimMass,scalar(0)) );
 
-
-    volScalarField Epithelium_COMT_Coeff(IOobject("Epithelium_COMT_Coeff",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
-					 Epithelium,
-					 dimensionedScalar("one",dimless/dimTime,scalar(0)) );
-
-    volScalarField Epithelium_Basal_Coeff(IOobject("Epithelium_Basal_Coeff",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
-					     Epithelium,dimensionedScalar("one",dimVolume/dimTime,scalar(0)) );
 
     volScalarField Epithelium_Flux_To_Body(IOobject("Epithelium_Flux_To_Body",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Epithelium,dimensionedScalar("one",dimMass/dimTime,scalar(0)) );
@@ -381,6 +410,7 @@ int main(int argc, char *argv[])
 	
     volScalarField Epithelium_TotalFlux_To_Body(IOobject("Epithelium_Flux_To_Body",runTime.timeName(),Epithelium,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Epithelium,dimensionedScalar("one",dimMass,scalar(0)) );
+
 
 
     // --------------------------------------------------- Body ---------------------------------------
@@ -424,17 +454,21 @@ int main(int argc, char *argv[])
         Body
     );
 
-    dimensionedScalar bodyelimination(StomachPropertiesDict.lookup("elimination"));    
-    dimensionedScalar bodyvolume(StomachPropertiesDict.lookup("volume"));    
+    dimensionedScalar bodyelimination(BodyLevodopaPropertiesDict.lookup("elimination"));    
+    dimensionedScalar bodyvolume(BodyLevodopaPropertiesDict.lookup("volume"));    
 
     volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
-					     Body,dimensionedScalar("one",dimMass/dimTime,scalar(0)) );
+					     Body,dimensionedScalar("one",dimMass/(dimVolume*dimTime),scalar(0)) );
 
-*/
+    volScalarField TotalElimination(IOobject("TotalElimination",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
+					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
+
+
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 
     Info<< "\nStarting time loop\n" << endl;
+
 
     while (runTime.loop())
     {
@@ -455,6 +489,8 @@ int main(int argc, char *argv[])
 		
 		Info << endl << "Stomach" << endl;
 		Info << "--------" << endl; 
+		Info << "In Stomach " << (LevodopaStomach*stomachvolume)->internalField()[0] << endl;
+		Info << "Emptied " << TotalLevodopaStomachEmptying.internalField()[0] << endl;
 		Info << "In Stomach + Emptied = " << (LevodopaStomach*stomachvolume)->internalField()[0] << " + " 
 						      << TotalLevodopaStomachEmptying.internalField()[0] << " = " 
 						      << (LevodopaStomach*stomachvolume +TotalLevodopaStomachEmptying)->internalField()[0]
@@ -466,40 +502,45 @@ int main(int argc, char *argv[])
 
 	{ // Small intestine
 
-
 		// Build the Sp coefficient. 
-		// remember that SI_SurfaceArea is for unit length. and so we have to multiply it to get the total amount absorbed. 
-		//			         m          *      []                 *      kg/s/m**2   /      (kg/m3)                               /		m**2	       = kg*m2/(m2*s*kg) = 1/s. 
-		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestine)/(pi*SI_Radius*SI_Radius);
+		// remember that SI_SurfaceArea is for unit length (m**2/m=m). and so we have to multiply it to get the total amount absorbed. 
+		//			         m          *      []                 *      kg/s/m**2   /      (kg/m3)                              /	   m**2	       = kg*m2/(m2*s*kg) = 1/s. 
+		//													     =  m**2/s               /	   m**2	       = 1/s.               
+		SI_LevodopaAbsorption_Coeff = SI_SurfaceArea*SI_SurfaceArea_Microvilli*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaSmallIntestine)/SI_CrossSection;
 	
-		// SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine = g/(s*m) that is the amount absorbed per unit length. 
+		// SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine = g/(s*m**3) that is the amount absorbed per unit length. 
 		//     --- divide by pi*R^2 to get the concentration per cell. 
 		// 
 
 		// Intestinal phase
 	
 		volScalarField TimeStepAbs = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine;
+		
+		// Empty to the first cell. 
+		SI_Emptying[0]  = LevodopaStomachEmptying[0]/SI_V[0];
 
 		fvScalarMatrix LevodopaIntestineEqn (
 			fvm::ddt(LevodopaSmallIntestine)  
 			+ fvm::div(SI_phi,LevodopaSmallIntestine)  
 			- fvm::laplacian(SmallIntestineDispersion,LevodopaSmallIntestine) 
 					== 
+			SI_Emptying
 			-TimeStepAbs
 		      
 		); 	
 
 		LevodopaIntestineEqn.solve();
 
-		SI_LevodopaAbsorption       = TimeStepAbs*(pi*SI_Radius*SI_Radius*SI_dh);
-		SI_LevodopaTotalAbsorption += SI_LevodopaAbsorption*runTime.deltaT();
+		SI_LevodopaAbsorption       = TimeStepAbs*SI_V; // g/(s*m**3)*m**3 = g/s
+		SI_LevodopaTotalAbsorption += SI_LevodopaAbsorption*runTime.deltaT(); // g/s *s = g. 
+
 
 		Info << endl << "Small Intestine" << endl;
 		Info <<         "---------------" << endl;
-		Info << "Intestinal Levodopa " << sum(LevodopaSmallIntestine*pi*SI_Radius*SI_Radius*SI_dh) << endl;
+		Info << "Intestinal Levodopa " << sum(LevodopaSmallIntestine*SI_V) << endl;
 		Info << "Absorption " << sum(SI_LevodopaTotalAbsorption) << endl;
 
-		Info << "Total " << sum(SI_LevodopaTotalAbsorption)+sum(LevodopaSmallIntestine*pi*SI_Radius*SI_Radius*SI_dh) << endl;
+		Info << "Total " << sum(SI_LevodopaTotalAbsorption)+sum(LevodopaSmallIntestine*SI_V) << endl;
 
 
 		if (runTime.time() > SIemptying) { 
@@ -511,58 +552,80 @@ int main(int argc, char *argv[])
 
 		}
 
+		
+
 	} //.. small intestine. 
 
 	
-/*
+
 	{ // Epithelium
 
-
 		// Build the Sp coefficient. 
-		//			         m**2  *      kg/s/m**2         = kg/s/(kg/m3) = kg*m3/(s*kg) = m3/s. 
-		Epithelium_Basal_Coeff = SI_SurfaceArea*Levodopa_LNAA_Vmax/(Levodopa_LNAA_Km + LevodopaEpithelium);
+		//			            		        m           *      kg/s/m2     /	  m2		 /              (kg/m3)                    * kg/m3             = kg/m3/s. 
+		volScalarField Epithelium_Basal_Absorption = (Epithelium_SurfaceArea*Levodopa_LNAA_Vmax/Epithelium_CrossSection/(Levodopa_LNAA_Km + LevodopaEpithelium))*LevodopaEpithelium;
 
-		
 
-		// Epithelium Volume 
-		Epithelium_LevodopaAbsorption_From_SI = SI_LevodopaAbsorption/Epithelium_Volume;
+		// Should be g/(s*m**3). 
+		forAll(SI_SurfaceArea,cellID) { 
+			Epithelium_LevodopaAbsorption_From_SI[cellID] = SI_LevodopaAbsorption[cellID] /Epithelium_Volume[cellID];
+		}		
 
-		// Build the Sp coefficient. 
-		//                           (kg/m3)/s/(kg/m3) 						= 1/s
- 		Epithelium_COMT_Coeff = Levodopa_COMT_Vmax/(Levodopa_COMT_Km + LevodopaEpithelium);
+		//                                                (kg/m3)/s   *  (kg/m3)         /(kg/m3) 			= kg/m3/s
+ 		volScalarField Epithelium_COMT_Metabolism = Levodopa_COMT_Vmax*LevodopaEpithelium/(Levodopa_COMT_Km + LevodopaEpithelium);
 
 		fvScalarMatrix EpitheliumEqn (
 			fvm::ddt(LevodopaEpithelium) 
 					== 
-			Epithelium_LevodopaAbsorption_From_SI
-			-fvm::Sp(Epithelium_COMT_Coeff,LevodopaEpithelium)
-			-fvm::Sp(Epithelium_Basal_Coeff/Epithelium.V(),LevodopaEpithelium)
+			 Epithelium_LevodopaAbsorption_From_SI
+			-Epithelium_COMT_Metabolism
+			-Epithelium_Basal_Absorption
 		); 	
 
 		EpitheliumEqn.solve();
+		Epithelium_TotalLevodopaAbsorption_From_SI 	+= Epithelium_LevodopaAbsorption_From_SI*Epithelium_Volume*runTime.deltaT();
+		Epithelium_COMT_TotalMetabolism 		+= Epithelium_COMT_Metabolism*Epithelium_Volume*runTime.deltaT();
+    		Epithelium_Flux_To_Body		 		 = Epithelium_Basal_Absorption*Epithelium_Volume;
+		Epithelium_TotalFlux_To_Body			+= Epithelium_Flux_To_Body*runTime.deltaT();
 
-		Epithelium_Flux_To_Body = Epithelium_Basal_Coeff*LevodopaEpithelium; 
-		Epithelium_TotalFlux_To_Body += Epithelium_TotalFlux_To_Body*runTime.deltaT();
+
+
+		Info << endl << "   Epithelium  " << endl;
+		Info <<         "---------------" << endl;
+		Info << "Epithelium Levodopa " << sum(LevodopaEpithelium*Epithelium_Volume) << endl;
+		Info << "Intesintal Absorption " << sum(Epithelium_TotalLevodopaAbsorption_From_SI) << endl;
+		Info << "COMT metabolism  " << sum(Epithelium_COMT_TotalMetabolism) << endl;
+		Info << "Basal Absorption " << sum(Epithelium_TotalFlux_To_Body) << endl;
 
 	} // .. Epithelium 
-     
+  
+   
 
 	{ // BODY 
 
-		Body_Flux_To_Body[0] = sum(Epithelium_Flux_To_Body).value();
+		Body_Flux_To_Body[0] = sum(Epithelium_Flux_To_Body).value()/bodyvolume.value();
+
+ 		volScalarField Body_Levodoa_Elimination = bodyelimination*LevodopaBody;
 
 		fvScalarMatrix BodyEqn (
 			fvm::ddt(LevodopaBody) 
 					== 
 			Body_Flux_To_Body
-			-fvm::Sp(bodyelimination,LevodopaBody)
+			-Body_Levodoa_Elimination
+
 		); 	
 
 		BodyEqn.solve();
 
+		TotalElimination += Body_Levodoa_Elimination*bodyvolume*runTime.deltaT();
+
+		Info << endl << "   Body  " << endl;
+		Info <<         "---------------" << endl;
+		Info << "Body Levodopa    " << sum(LevodopaBody*bodyvolume) << endl;
+		Info << "Body Elimination " << sum(TotalElimination) << endl;
+	
 	}
 
-*/
+
 
 	runTime.write();
 
