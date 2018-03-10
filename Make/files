@@ -1,3 +1,4 @@
 LevodopaIntestine.C
+Tablet.C
 
 EXE = $(FOAM_APPBIN)/LevodopaIntestine

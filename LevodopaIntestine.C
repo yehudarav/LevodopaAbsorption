@@ -54,6 +54,7 @@ Description
 #include <sstream>
 #include <fstream>
 
+#include "Tablet.H"
 
 
 //#include "stdlib.h"
@@ -64,7 +65,7 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
 
-    Info << " \n\nIntestinalLevodopa  :  0.0.1 (b)" << endl; 
+    Info << " \n\nIntestinalLevodopa  :  0.1.0" << endl; 
     Info << " -------------------------- " << endl; 
 
      const scalar pi = 3.1428;
@@ -222,7 +223,7 @@ int main(int argc, char *argv[])
     surfaceScalarField SI_phi(
         IOobject
         (
-            "SmallIntestineVelocity",
+            "SmallIntestinePhi",
             runTime.timeName(),
             SmallIntestine,
             IOobject::NO_READ,
@@ -264,7 +265,7 @@ int main(int argc, char *argv[])
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(1)) );
 
 
-    volScalarField SI_V = pi*SI_Radius*SI_Radius*SI_dh;
+    volScalarField SI_V = (IOobject("SI_V",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),pi*SI_Radius*SI_Radius*SI_dh);
 
 
     // folding = 3 from 10 to 50. 
@@ -415,7 +416,6 @@ int main(int argc, char *argv[])
 
 */
 
-    // --------------------------------------------------- Body ---------------------------------------
     // Create the Mesh
     Foam::fvMesh Body
     (
@@ -456,8 +456,24 @@ int main(int argc, char *argv[])
         Body
     );
 
-    dimensionedScalar bodyelimination(BodyLevodopaPropertiesDict.lookup("elimination"));    
-    dimensionedScalar bodyvolume(BodyLevodopaPropertiesDict.lookup("volume"));    
+    // Create the variables. 
+    volScalarField LevodopaBodyC2
+    (
+        IOobject
+        (
+            "LevodopaBodyC2",
+            runTime.timeName(),
+            Body,
+            IOobject::MUST_READ,
+            IOobject::AUTO_WRITE
+        ),
+        Body
+    );
+
+    dimensionedScalar k10(BodyLevodopaPropertiesDict.lookup("k10"));
+    dimensionedScalar k12(BodyLevodopaPropertiesDict.lookup("k12"));    
+    dimensionedScalar k21(BodyLevodopaPropertiesDict.lookup("k21"));        
+    dimensionedScalar V0(BodyLevodopaPropertiesDict.lookup("volume"));    
 
     volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass/(dimVolume*dimTime),scalar(0)) );
@@ -469,6 +485,36 @@ int main(int argc, char *argv[])
     volScalarField TotalElimination(IOobject("TotalElimination",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
 
+
+    volScalarField C1_To_C2(IOobject("C1_To_C2",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
+					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
+    volScalarField C2_To_C1(IOobject("C2_To_C1",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
+					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
+
+
+    // --------------------------------------------------- Body ---------------------------------------
+    IOdictionary tabletDict
+    (
+        IOobject
+        (
+            "tablets",    // dictionary name
+            runTime.constant(),     // dict is found in "constant"
+            Stomach,                   // registry for the dict
+            IOobject::MUST_READ,    // must exist, otherwise failure
+            IOobject::NO_WRITE      // dict is only read by the solver
+        )
+    );
+    wordList tabletNameList
+	    (
+		tabletDict.lookup("tablets")
+	    );
+    
+    PtrList<Tablet> tabletList(tabletNameList.size());
+
+    forAll(tabletNameList, tabletid)
+    {
+	tabletList.set(tabletid,new Tablet(runTime,Stomach, SmallIntestine,tabletDict.subDict(tabletNameList[tabletid]))); 
+    } 
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -608,26 +654,40 @@ int main(int argc, char *argv[])
 
 	{ // BODY 
 
-		Body_Flux_To_Body[0] = sum(SI_LevodopaAbsorption).value()/bodyvolume.value();
-
- 		volScalarField Body_Levodoa_Elimination = bodyelimination*LevodopaBody;
-
+		Body_Flux_To_Body[0] = sum(SI_LevodopaAbsorption).value()/V0.value();
+ 		volScalarField Body_Levodoa_C2ToC1 = k21*LevodopaBodyC2;
 		fvScalarMatrix BodyEqn (
 			fvm::ddt(LevodopaBody) 
 					== 
 			Body_Flux_To_Body
-			-Body_Levodoa_Elimination
+			-fvm::Sp(k12,LevodopaBody)
+			- fvc::Sp(k12,LevodopaBody)
+			+ Body_Levodoa_C2ToC1
+			-fvm::Sp(k10,LevodopaBody) //Body_Levodoa_Elimination
+
 
 		); 	
+ 		volScalarField Body_Levodoa_Elimination = fvc::Sp(k10,LevodopaBody);
+ 		volScalarField Body_Levodoa_C1ToC2 = fvc::Sp(k12,LevodopaBody);
+
+		fvScalarMatrix BodyEqncC2 (
+			fvm::ddt(LevodopaBodyC2) 
+					== 
+			  fvc::Sp(k12,LevodopaBody)
+			- Body_Levodoa_C2ToC1
+		); 	
+
 
 		BodyEqn.solve();
+		BodyEqncC2.solve();
 
-		TotalBodyAbsorption += Body_Flux_To_Body*bodyvolume*runTime.deltaT();
-		TotalElimination += Body_Levodoa_Elimination*bodyvolume*runTime.deltaT();
+
+		TotalBodyAbsorption += Body_Flux_To_Body*V0*runTime.deltaT();
+		TotalElimination += Body_Levodoa_Elimination*V0*runTime.deltaT();
 
 		Info << endl << "   Body  " << endl;
 		Info <<         "---------------" << endl;
-		Info << "Body Levodopa    " << sum(LevodopaBody*bodyvolume) << endl;
+		Info << "Body Levodopa    " << sum(LevodopaBody*V0) << endl;
 		Info << "Body Absorption  " << sum(TotalBodyAbsorption) << endl;
 		Info << "Body Elimination " << sum(TotalElimination) << endl;
 	
