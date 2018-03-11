@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(1)) );
 
 
-    volScalarField SI_V = (IOobject("SI_V",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),pi*SI_Radius*SI_Radius*SI_dh);
+    volScalarField SI_V(IOobject("SI_V",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),pi*SI_Radius*SI_Radius*SI_dh);
 
 
     // folding = 3 from 10 to 50. 
@@ -400,7 +400,7 @@ int main(int argc, char *argv[])
 					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
 
 
-    // --------------------------------------------------- Body ---------------------------------------
+    // --------------------------------------------------- Tablets ---------------------------------------
     IOdictionary tabletDict
     (
         IOobject
@@ -421,14 +421,23 @@ int main(int argc, char *argv[])
 
     forAll(tabletNameList, tabletid)
     {
-	tabletList.set(tabletid,new Tablet(runTime,Stomach, SmallIntestine,tabletDict.subDict(tabletNameList[tabletid]))); 
+	tabletList.set(tabletid,new Tablet(runTime,
+					   Stomach, 
+					   SmallIntestine,
+					   tabletDict.subDict(tabletNameList[tabletid]),
+					   stomachvolume,
+					   SI_V,
+					   SmallIntestineVelocity)); 
     } 
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 
     Info<< "\nStarting time loop\n" << endl;
-
+    forAll(tabletList, tabletid)
+    {
+	tabletList[tabletid].setInitialConditions(LevodopaStomach,LevodopaSmallIntestine);
+    }
 
     while (runTime.loop())
     {
