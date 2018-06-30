@@ -98,6 +98,10 @@ int main(int argc, char *argv[])
     ); 
     dimensionedScalar stomachemptying(StomachPropertiesDict.lookup("stomachemptying"));    
     dimensionedScalar stomachvolume(StomachPropertiesDict.lookup("stomachvolume"));    
+    dimensionedScalar currentstomachemptying(stomachemptying);
+
+    dimensionedScalar lagstart(StomachPropertiesDict.lookup("lagStart"));    
+    dimensionedScalar lagend(StomachPropertiesDict.lookup("lagEnd"));    
 
     // Create the variables. 
     volScalarField LevodopaStomach 
@@ -113,11 +117,19 @@ int main(int argc, char *argv[])
         Stomach
     );
    
-    volScalarField TotalLevodopaStomachEmptying(IOobject("TotalLevodopaStomachEmptying",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::NO_WRITE),
-					   Stomach,dimensionedScalar("zero",dimMass,scalar(0)) );
+    volScalarField TotalLevodopaStomachEmptying(
+					IOobject("TotalLevodopaStomachEmptying",
+					runTime.timeName(),
+					Stomach,
+					IOobject::NO_READ,IOobject::NO_WRITE),
+					Stomach,
+					dimensionedScalar("zero",dimMass,scalar(0)) );
 
     volScalarField LevodopaStomachEmptying(IOobject("LevodopaStomachEmptying",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::NO_WRITE),
 					   Stomach,dimensionedScalar("zero",dimMass/dimTime,scalar(0)) );
+
+    volScalarField StomachTabletErosion(IOobject("StomachTabletErosion",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::NO_WRITE),
+					   Stomach,dimensionedScalar("zero",dimMass/dimTime/dimVolume,scalar(0)) );
 
     // --------------------------------------------------- Small Intestine ---------------------------------------
 
@@ -214,11 +226,12 @@ int main(int argc, char *argv[])
 	dimensionedTensor(SmallIntestinePropertiesDict.lookup("SI_D"))
     );
 
+
+
    // Setting the last cell to be 0, 
    // the intestine should be emptied (velocity = velocity of the rest of the intestine) according to the intestinal emptying parameter. 
-   //SmallIntestineVelocity[SmallIntestine.C().size()-1].component(0) = 0;
-   //SmallIntestineVelocity[SmallIntestine.C().size()-2].component(0) = 0;
-   // need to set the boundary condition to be 0. not the center of the cell. 
+   SmallIntestineVelocity[SmallIntestine.C().size()-1].component(0) = 0;
+   
 
     surfaceScalarField SI_phi(
         IOobject
@@ -302,6 +315,10 @@ int main(int argc, char *argv[])
 
     volScalarField SI_SurfaceArea_Microvilli(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(25)) );   
+
+    volScalarField SI_TabletErosion(IOobject("SI_TabletErosion",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+					   SmallIntestine,dimensionedScalar("zero",dimMass/dimTime/dimVolume,scalar(0)) );
+
 
     dimensionedScalar SI_CrossSection(SmallIntestinePropertiesDict.lookup("SI_CrossSection"));
 
@@ -448,12 +465,23 @@ int main(int argc, char *argv[])
         //#include "setDeltaT.H"
 	
 	{ 	// Stomach
+		if ((runTime.time() > lagstart) && (runTime.time() < lagend)) { 
+			currentstomachemptying.value() = 0;
+		} else { 
+			currentstomachemptying = stomachemptying;
+		}
+		StomachTabletErosion.internalField()[0] = 0;
+		forAll(tabletList, tabletid)
+		{
+			StomachTabletErosion += tabletList[tabletid].getStomachSource();
+		}
+
 		fvScalarMatrix LevodopaStomachEqn (
-			fvm::ddt(LevodopaStomach) == fvm::Sp(-stomachemptying,LevodopaStomach)			
+			fvm::ddt(LevodopaStomach) == fvm::Sp(-currentstomachemptying,LevodopaStomach) + StomachTabletErosion
 		); 	
 		
 		LevodopaStomachEqn.solve();
-		LevodopaStomachEmptying  = fvc::Sp(stomachemptying,LevodopaStomach)*stomachvolume; 
+		LevodopaStomachEmptying  = fvc::Sp(currentstomachemptying,LevodopaStomach)*stomachvolume; 
 		TotalLevodopaStomachEmptying += LevodopaStomachEmptying*runTime.deltaT();
 		
 		Info << endl << "Stomach" << endl;
@@ -482,11 +510,19 @@ int main(int argc, char *argv[])
 		// 
 
 		// Intestinal phase
-	
 		volScalarField TimeStepAbs = SI_LevodopaAbsorption_Coeff*LevodopaSmallIntestine;
 		
 		// Empty to the first cell. 
 		SI_Emptying[0]  = LevodopaStomachEmptying[0]/SI_V[0];
+
+		forAll(SI_TabletErosion,cellid) { 
+			SI_TabletErosion.internalField()[cellid] = 0;
+		}
+
+		forAll(tabletList, tabletid)
+		{
+			SI_TabletErosion += tabletList[tabletid].getIntestineSource();
+		}
 
 		fvScalarMatrix LevodopaIntestineEqn (
 			fvm::ddt(LevodopaSmallIntestine)  
@@ -494,7 +530,8 @@ int main(int argc, char *argv[])
 			- fvm::laplacian(SmallIntestineDispersion,LevodopaSmallIntestine) 
 					== 
 			SI_Emptying
-			-TimeStepAbs
+			+ SI_TabletErosion 
+			- TimeStepAbs
 		      
 		); 	
 
@@ -518,6 +555,8 @@ int main(int argc, char *argv[])
 			{ 
 				SI_phi = linearInterpolate(SmallIntestineVelocity) & SmallIntestine.Sf();
 			} 
+
+			SmallIntestineVelocity[SmallIntestine.C().size()-1] = SI_U.value();
 
 		}
 
