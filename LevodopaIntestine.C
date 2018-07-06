@@ -400,7 +400,7 @@ int main(int argc, char *argv[])
     dimensionedScalar k21(BodyLevodopaPropertiesDict.lookup("k21"));        
     dimensionedScalar V0(BodyLevodopaPropertiesDict.lookup("volume"));    
 
-    volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					     Body,dimensionedScalar("one",dimMass/(dimVolume*dimTime),scalar(0)) );
 
     volScalarField TotalBodyAbsorption(IOobject("TotalAbsorption",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
