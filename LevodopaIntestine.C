@@ -196,6 +196,14 @@ int main(int argc, char *argv[])
 
     dimensionedScalar SIemptying(SmallIntestinePropertiesDict.lookup("Emptying"));    
 	
+    const bool absorptionWindow = SmallIntestinePropertiesDict.lookupOrDefault<bool>("AbsorptionWindow", false);
+
+    if (absorptionWindow) { 
+		Info << " ---------------> Using the absorption window " << endl;
+    } else { 
+		Info << " ---------------> NO absorption window " << endl;
+    } 
+
     volVectorField SmallIntestineVelocity 
     (
         IOobject
@@ -309,14 +317,27 @@ int main(int argc, char *argv[])
 			scalar villi_density   = 25e6; // 25 mm^-2 = 25e6m**2. 
 			scalar villi_amplification = villi_density*(villi_tip_area+villi_body_area);
 
-			SI_SurfaceArea[cellID] 		= 2*pi*SI_Radius.value()*folding_amplification*villi_amplification;
+			bool setSI = true; 
+
+			if (absorptionWindow && X[cellID] > 0.94) { 
+				setSI = false; 
+			}
+		
+			if (setSI) { 
+				SI_SurfaceArea[cellID] 		= 2*pi*SI_Radius.value()*folding_amplification*villi_amplification;
+			} else { 
+				SI_SurfaceArea[cellID]          = 0;
+			}
+
 			SI_dh[cellID]  = SmallIntestine.V()[cellID];
     }
+
+	Info << SI_SurfaceArea;
 
     volScalarField SI_SurfaceArea_Microvilli(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(25)) );   
 
-    volScalarField SI_TabletErosion(IOobject("SI_TabletErosion",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField SI_TabletErosion(IOobject("SI_TabletErosion",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					   SmallIntestine,dimensionedScalar("zero",dimMass/dimTime/dimVolume,scalar(0)) );
 
 
@@ -337,7 +358,7 @@ int main(int argc, char *argv[])
 					     SmallIntestine,dimensionedScalar("one",dimless/dimTime,scalar(0)) );
 
   
-    volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField SI_LevodopaTotalAbsorption(IOobject("SI_LevodopaTotalAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimMass,scalar(0)) );
 
 
@@ -400,7 +421,7 @@ int main(int argc, char *argv[])
     dimensionedScalar k21(BodyLevodopaPropertiesDict.lookup("k21"));        
     dimensionedScalar V0(BodyLevodopaPropertiesDict.lookup("volume"));    
 
-    volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::AUTO_WRITE),
+    volScalarField Body_Flux_To_Body(IOobject("Body_Flux_To_Body",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass/(dimVolume*dimTime),scalar(0)) );
 
     volScalarField TotalBodyAbsorption(IOobject("TotalAbsorption",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
