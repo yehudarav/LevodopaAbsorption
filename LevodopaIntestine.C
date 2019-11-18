@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 	SI_U
     );
 
-	
+	Info << SmallIntestineVelocity << endl;	
 
     volTensorField SmallIntestineDispersion 
     (
