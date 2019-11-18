@@ -42,10 +42,8 @@ Description
 
 #include "fvCFD.H"
 #include "singlePhaseTransportModel.H"
-#include "radiationModel.H"
 #include "turbulentTransportModel.H"
 
-#include "fvIOoptionList.H"
 #include "pimpleControl.H"
 #include "interpolation.H"
 #include "Random.H"
@@ -259,7 +257,7 @@ int main(int argc, char *argv[])
 
 	forAll(IleoCecalcPatch, facei) 
 	{ 
-		SI_phi.boundaryField()[IleoCecalpatchID][facei] =0; 
+		SI_phi.boundaryFieldRef()[IleoCecalpatchID][facei] =0; 
 	} 
 
 
@@ -269,7 +267,7 @@ int main(int argc, char *argv[])
 
 	forAll(PylorusPatch, facei) 
 	{ 
-		SI_phi.boundaryField()[PyloruspatchID][facei] =0; 
+		SI_phi.boundaryFieldRef()[PyloruspatchID][facei] =0; 
 	} 
 
 
@@ -491,7 +489,7 @@ int main(int argc, char *argv[])
 		} else { 
 			currentstomachemptying = stomachemptying;
 		}
-		StomachTabletErosion.internalField()[0] = 0;
+		StomachTabletErosion.ref()[0] = 0;
 		forAll(tabletList, tabletid)
 		{
 			StomachTabletErosion += tabletList[tabletid].getStomachSource();
@@ -507,8 +505,8 @@ int main(int argc, char *argv[])
 		
 		Info << endl << "Stomach" << endl;
 		Info << "--------" << endl; 
-		Info << "In Stomach " << (LevodopaStomach*stomachvolume)->internalField()[0] << endl;
-		Info << "Emptied " << TotalLevodopaStomachEmptying.internalField()[0] << endl;
+		Info << "In Stomach " << (LevodopaStomach*stomachvolume)->ref()[0] << endl;
+		Info << "Emptied " << TotalLevodopaStomachEmptying()[0] << endl;
 		Info << "In Stomach + Emptied = " << (LevodopaStomach*stomachvolume)->internalField()[0] << " + " 
 						      << TotalLevodopaStomachEmptying.internalField()[0] << " = " 
 						      << (LevodopaStomach*stomachvolume +TotalLevodopaStomachEmptying)->internalField()[0]
@@ -537,7 +535,7 @@ int main(int argc, char *argv[])
 		SI_Emptying[0]  = LevodopaStomachEmptying[0]/SI_V[0];
 
 		forAll(SI_TabletErosion,cellid) { 
-			SI_TabletErosion.internalField()[cellid] = 0;
+			SI_TabletErosion.ref()[cellid] = 0;
 		}
 
 		forAll(tabletList, tabletid)
