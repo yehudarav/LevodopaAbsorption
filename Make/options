@@ -6,8 +6,7 @@ EXE_INC = \
     -I$(LIB_SRC)/TurbulenceModels/turbulenceModels/lnInclude \
     -I$(LIB_SRC)/TurbulenceModels/incompressible/lnInclude \
     -I$(LIB_SRC)/transportModels \
-    -I$(LIB_SRC)/transportModels/incompressible/singlePhaseTransportModel \
-    -I$(LIB_SRC)/thermophysicalModels/radiation/lnInclude \
+    -I$(LIB_SRC)/transportModels/incompressible/singlePhaseTransportModel 
 
 
 EXE_LIBS = \
@@ -17,7 +16,6 @@ EXE_LIBS = \
     -lmeshTools \
     -lincompressibleTurbulenceModels \
     -lincompressibleTransportModels \
-    -lradiationModels \
     -lturbulenceModels 
 
 

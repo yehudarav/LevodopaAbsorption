@@ -26,6 +26,8 @@ class Tablet  {
 	volScalarField& getIntestineSource();
 
 
+	void PP() { Info << "Stomach volume " << __stomachVolume << endl;}
+
 	/*======================================
 		     	private
 	======================================*/
@@ -44,7 +46,7 @@ class Tablet  {
 	volScalarField __IntestineSource; 
 	volScalarField __StomachSource; 
  
-	dimensionedScalar&  __stomachVolume;
+	const dimensionedScalar  __stomachVolume;
 	dimensionedScalar   __tabletSize; // in kg. 
 
 	dimensionedScalar   __Stomach_Burst; 
@@ -52,6 +54,7 @@ class Tablet  {
 
 	dimensionedScalar   __StartErode; // The time the tablet starts the erosion. 
 
+	dimensionedScalar   __Stomach_ErosionRate; 
 	dimensionedScalar   __ErosionRate; 
 
 };

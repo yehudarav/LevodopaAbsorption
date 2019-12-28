@@ -47,12 +47,16 @@ Foam::Tablet::Tablet(Time& iRunTime,
 		__StartErode.dimensions().reset(dimTime);
 		__LocationDistance.dimensions().reset(dimLength);
 		__ErosionRate.dimensions().reset(dimMass/dimTime/dimMass);
+		__Stomach_ErosionRate.dimensions().reset(dimMass/dimTime/dimMass);
 
 		__tabletSize  		= dimensionedScalar(tabletDict.lookup("tabletSize")); 
 		__Stomach_Burst 	= dimensionedScalar(tabletDict.subDict("Stomach").lookup("Burst") );
 		__Stomach_ResidenceTime = dimensionedScalar(tabletDict.subDict("Stomach").lookup("Residence") );
 		__StartErode		= dimensionedScalar(tabletDict.lookup("ErosionStart")); 
 		__ErosionRate		= dimensionedScalar(tabletDict.lookup("ErosionRate")); 
+
+		__Stomach_ErosionRate   = dimensionedScalar(tabletDict.subDict("Stomach").lookupOrDefault("ErosionRate",__ErosionRate)); 
+		
 
 	}
 
@@ -68,12 +72,12 @@ void Foam::Tablet::setInitialConditions(volScalarField& stomach,volScalarField& 
 
 // get the stomach source. 
 volScalarField& Foam::Tablet::getStomachSource() {
-
 	__StomachSource[0] = 0;
+	
 	if (__LocationLabel == -1) { 
 
 		if (__RunTime.time() > __StartErode) { 
-			dimensionedScalar eroded = __tabletSize*__ErosionRate*__RunTime.deltaT();
+			dimensionedScalar eroded = __tabletSize*__Stomach_ErosionRate*__RunTime.deltaT();
 			__StomachSource[0] = (eroded/__stomachVolume).value();
 		
 

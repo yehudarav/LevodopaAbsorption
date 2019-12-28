@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
         SmallIntestine
     );
 
-   
+  
     dimensionedVector SI_U(SmallIntestinePropertiesDict.lookup("SI_U"));
     dimensionedScalar SI_Radius(SmallIntestinePropertiesDict.lookup("SI_Radius"));	
     dimensionedScalar SI_L(SmallIntestinePropertiesDict.lookup("SI_Length"));
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 	SI_U
     );
 
-	Info << SmallIntestineVelocity << endl;	
+	//Info << SmallIntestineVelocity << endl;	
 
     volTensorField SmallIntestineDispersion 
     (
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 			SI_dh[cellID]  = SmallIntestine.V()[cellID];
     }
 
-	Info << SI_SurfaceArea;
+	//Info << SI_SurfaceArea;
 
     volScalarField SI_SurfaceArea_Microvilli(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(25)) );   
@@ -429,7 +429,6 @@ int main(int argc, char *argv[])
     volScalarField TotalElimination(IOobject("TotalElimination",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
 
-
     volScalarField C1_To_C2(IOobject("C1_To_C2",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
 					     Body,dimensionedScalar("one",dimMass,scalar(0)) );
     volScalarField C2_To_C1(IOobject("C2_To_C1",runTime.timeName(),Body,IOobject::NO_READ,IOobject::NO_WRITE),
@@ -489,6 +488,7 @@ int main(int argc, char *argv[])
 		} else { 
 			currentstomachemptying = stomachemptying;
 		}
+
 		StomachTabletErosion.ref()[0] = 0;
 		forAll(tabletList, tabletid)
 		{
@@ -498,7 +498,7 @@ int main(int argc, char *argv[])
 		fvScalarMatrix LevodopaStomachEqn (
 			fvm::ddt(LevodopaStomach) == fvm::Sp(-currentstomachemptying,LevodopaStomach) + StomachTabletErosion
 		); 	
-		
+	
 		LevodopaStomachEqn.solve();
 		LevodopaStomachEmptying  = fvc::Sp(currentstomachemptying,LevodopaStomach)*stomachvolume; 
 		TotalLevodopaStomachEmptying += LevodopaStomachEmptying*runTime.deltaT();
@@ -631,7 +631,7 @@ int main(int argc, char *argv[])
 	Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
 			<< "  ClockTime = " << runTime.elapsedClockTime() << " s"
 			<< nl << endl;
-            
+
     }
 
     Info<< "End\n" << endl;
