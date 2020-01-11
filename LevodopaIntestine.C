@@ -98,8 +98,33 @@ int main(int argc, char *argv[])
     dimensionedScalar stomachvolume(StomachPropertiesDict.lookup("stomachvolume"));    
     dimensionedScalar currentstomachemptying(stomachemptying);
 
-    dimensionedScalar lagstart(StomachPropertiesDict.lookup("lagStart"));    
-    dimensionedScalar lagend(StomachPropertiesDict.lookup("lagEnd"));    
+    List<dimensionedScalar*> lagStartList; 
+    List<dimensionedScalar*> lagEndList; 
+
+    if (StomachPropertiesDict.found("lagStartList")) { 
+
+		scalarList lagStartScalarList(StomachPropertiesDict.lookup("lagStartList"));
+		scalarList lagEndWordList(StomachPropertiesDict.lookup("lagEndList"));
+
+		forAll(lagStartScalarList, i) 
+		{
+
+
+			lagStartList.append(new dimensionedScalar("x",dimTime,lagStartScalarList[i])); 
+			lagEndList.append  (new dimensionedScalar("x",dimTime,lagEndWordList[i])); 
+		}
+
+    } else { 
+
+	    
+
+	    dimensionedScalar lagstart(StomachPropertiesDict.lookup("lagStart"));    
+	    dimensionedScalar lagend(StomachPropertiesDict.lookup("lagEnd"));    
+
+	    lagStartList.append(new dimensionedScalar(lagstart));
+	    lagEndList.append(  new dimensionedScalar(lagend)); 
+    }
+
 
     // Create the variables. 
     volScalarField LevodopaStomach 
@@ -483,10 +508,11 @@ int main(int argc, char *argv[])
         //#include "setDeltaT.H"
 	
 	{ 	// Stomach
-		if ((runTime.time() > lagstart) && (runTime.time() < lagend)) { 
-			currentstomachemptying.value() = 0;
-		} else { 
-			currentstomachemptying = stomachemptying;
+		currentstomachemptying = stomachemptying;
+		forAll(lagStartList,i) { 
+			if ((runTime.time() > *(lagStartList[i])) && (runTime.time() < *(lagEndList[i]))) { 
+				currentstomachemptying.value() = 0;
+			}
 		}
 
 		StomachTabletErosion.ref()[0] = 0;
