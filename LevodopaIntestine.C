@@ -141,18 +141,21 @@ int main(int argc, char *argv[])
     );
    
     volScalarField TotalLevodopaStomachEmptying(
-					IOobject("TotalLevodopaStomachEmptying",
+					IOobject("Stomach_TotalLevodopaEmptying",
 					runTime.timeName(),
 					Stomach,
-					IOobject::NO_READ,IOobject::NO_WRITE),
+					IOobject::NO_READ,IOobject::AUTO_WRITE),
 					Stomach,
 					dimensionedScalar("zero",dimMass,scalar(0)) );
 
-    volScalarField LevodopaStomachEmptying(IOobject("LevodopaStomachEmptying",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField LevodopaStomachEmptying(IOobject("LevodopaStomachEmptying",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::AUTO_WRITE),
 					   Stomach,dimensionedScalar("zero",dimMass/dimTime,scalar(0)) );
 
-    volScalarField StomachTabletErosion(IOobject("StomachTabletErosion",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField StomachTabletErosion(IOobject("TabletStomach_Erosion",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::NO_WRITE),
 					   Stomach,dimensionedScalar("zero",dimMass/dimTime/dimVolume,scalar(0)) );
+
+    volScalarField Total_StomachTabletErosion(IOobject("Stomach_TotalTabletErosion",runTime.timeName(),Stomach,IOobject::NO_READ,IOobject::AUTO_WRITE),
+					   Stomach,dimensionedScalar("zero",dimMass,scalar(0)) );
 
     // --------------------------------------------------- Small Intestine ---------------------------------------
 
@@ -209,7 +212,6 @@ int main(int argc, char *argv[])
         ),
         SmallIntestine
     );
-
   
     dimensionedVector SI_U(SmallIntestinePropertiesDict.lookup("SI_U"));
     dimensionedScalar SI_Radius(SmallIntestinePropertiesDict.lookup("SI_Radius"));	
@@ -360,9 +362,11 @@ int main(int argc, char *argv[])
     volScalarField SI_SurfaceArea_Microvilli(IOobject("SI_SurfaceArea",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("one",dimless,scalar(25)) );   
 
-    volScalarField SI_TabletErosion(IOobject("SI_TabletErosion",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
+    volScalarField SI_TabletErosion(IOobject("SI_TabletErosion",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					   SmallIntestine,dimensionedScalar("zero",dimMass/dimTime/dimVolume,scalar(0)) );
 
+    volScalarField SI_TotalTabletErosion(IOobject("SI_TotalTabletErosion",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::AUTO_WRITE),
+					   SmallIntestine,dimensionedScalar("zero",dimMass,scalar(0)) );
 
     dimensionedScalar SI_CrossSection(SmallIntestinePropertiesDict.lookup("SI_CrossSection"));
 
@@ -377,7 +381,7 @@ int main(int argc, char *argv[])
 					     SmallIntestine,dimensionedScalar("one",dimMass/dimTime,scalar(0)) );
 
 
-    volScalarField SI_LevodopaAbsorption_Coeff(IOobject("SI_LevodopaAbsorption",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
+    volScalarField SI_LevodopaAbsorption_Coeff(IOobject("SI_LevodopaAbsorption_coeff",runTime.timeName(),SmallIntestine,IOobject::NO_READ,IOobject::NO_WRITE),
 					     SmallIntestine,dimensionedScalar("one",dimless/dimTime,scalar(0)) );
 
   
@@ -521,6 +525,9 @@ int main(int argc, char *argv[])
 			StomachTabletErosion += tabletList[tabletid].getStomachSource();
 		}
 
+
+		Total_StomachTabletErosion += StomachTabletErosion*runTime.deltaT()*stomachvolume;
+
 		fvScalarMatrix LevodopaStomachEqn (
 			fvm::ddt(LevodopaStomach) == fvm::Sp(-currentstomachemptying,LevodopaStomach) + StomachTabletErosion
 		); 	
@@ -568,6 +575,8 @@ int main(int argc, char *argv[])
 		{
 			SI_TabletErosion += tabletList[tabletid].getIntestineSource();
 		}
+
+		SI_TotalTabletErosion+= SI_TabletErosion*SI_V*runTime.deltaT();
 
 		fvScalarMatrix LevodopaIntestineEqn (
 			fvm::ddt(LevodopaSmallIntestine)  
