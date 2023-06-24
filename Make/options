@@ -11,11 +11,7 @@ EXE_INC = \
 
 EXE_LIBS = \
     -lfiniteVolume \
-    -lfvOptions \
     -lsampling \
     -lmeshTools \
-    -lincompressibleTurbulenceModels \
-    -lincompressibleTransportModels \
-    -lturbulenceModels 
 
 

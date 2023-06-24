@@ -41,8 +41,8 @@ Description
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "singlePhaseTransportModel.H"
-#include "turbulentTransportModel.H"
+//#include "singlePhaseTransportModel.H"
+//#include "turbulentTransportModel.H"
 
 #include "pimpleControl.H"
 #include "interpolation.H"
