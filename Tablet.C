@@ -49,11 +49,11 @@ Foam::Tablet::Tablet(Time& iRunTime,
 		__ErosionRate.dimensions().reset(dimMass/dimTime/dimMass);
 		__Stomach_ErosionRate.dimensions().reset(dimMass/dimTime/dimMass);
 
-		__tabletSize  		= dimensionedScalar(tabletDict.lookup("tabletSize")); 
-		__Stomach_Burst 	= dimensionedScalar(tabletDict.subDict("Stomach").lookup("Burst") );
-		__Stomach_ResidenceTime = dimensionedScalar(tabletDict.subDict("Stomach").lookup("Residence") );
-		__StartErode		= dimensionedScalar(tabletDict.lookup("ErosionStart")); 
-		__ErosionRate		= dimensionedScalar(tabletDict.lookup("ErosionRate")); 
+		__tabletSize  		= tabletDict.get<Foam::scalar>("tabletSize"); 
+		__Stomach_Burst 	= tabletDict.subDict("Stomach").get<Foam::scalar>("Burst");
+		__Stomach_ResidenceTime = tabletDict.subDict("Stomach").get<Foam::scalar>("Residence");
+		__StartErode		= tabletDict.get<Foam::scalar>("ErosionStart"); 
+		__ErosionRate		= tabletDict.get<Foam::scalar>("ErosionRate");  //dimensionedScalar(tabletDict.lookup("ErosionRate")); 
 
 		__Stomach_ErosionRate   = dimensionedScalar(tabletDict.subDict("Stomach").lookupOrDefault("ErosionRate",__ErosionRate)); 
 		
